@@ -1,0 +1,85 @@
+function [ files] = MOCO_LIVER_T1(varargin)
+
+
+%UNTITLED Summary of this function goes here
+%   Detailed explanation goes here
+[the_folder] = pathsetting('Desktop');
+
+if numel(varargin)<1
+    message='Select the .nii files to do motion correction on, putting Reference image first and the Mask last. ';
+files=uipickfiles('FilterSpec',the_folder , 'REFilter','spirTSE|TR|0.nii\','Prompt',message,'Type', {'*.nii','NIFTI files'});
+else
+   files=varargin{1};
+end
+
+[dir,~,~]=fileparts(files{1});
+NumberLoaded=numel(files);
+
+
+
+%STEP1: FLIRT of each slices indendently
+refim=files{1};
+mask=files{NumberLoaded};
+
+ split_ref=['cd ',dir,'; fslsplit ',refim,' aREF -z' ] ;
+ system(split_ref); 
+ [~, refs]=system(['ls ',dir,filesep,'* |grep aREF0 |grep .gz']);
+ refs=strsplit(refs);
+ %refs=strcat([dir,filesep],refs);
+ 
+  split_mask=['cd ',dir,'; fslsplit ',mask,' aMASK -z' ] ;
+ system(split_mask); 
+ [~, masks]=system(['ls ',dir,filesep,'* |grep aMASK0 |grep .gz']);
+ masks=strsplit(masks);
+ %masks=strcat([dir,filesep],masks);
+ 
+ 
+for ii=2:NumberLoaded-1
+    movim_all=files{ii};
+    
+   cmd_split_mov=['cd ',dir,'; fslsplit ',movim_all,' aMOV -z' ] ;
+ system(cmd_split_mov);
+ 
+ [~, movs]=system(['ls ',dir,filesep,'* |grep aMOV0 |grep .gz |grep -v STEP']);
+ movs=strsplit(movs);
+ %movs=strcat([dir,filesep],movs);
+ 
+    %remove_temp_movs='rm
+    
+    for jj=1:numel(movs)
+        mask1=masks{jj};
+        
+        outim1=[movs{jj},'_aSTEP1'];
+        refim1=refs{jj};
+         movim1=movs{jj};
+             
+        command=['flirt -ref ',refim1,' -in ',movim1,' -refweight ',mask1,' -out ',outim1,' -2D -cost normmi  -searchrx -5 5 -searchry -5 5 -searchrz -5 5'] ;
+        system(command);
+        jj
+    end
+       
+    [~, tomerge]=system(['ls ',dir,filesep,'* |grep aMOV0 |grep .gz |grep STEP']);
+ tomerge=strsplit(tomerge);    
+  %tomerge=string(tomerge);
+ tomerge=strjoin(tomerge);
+ 
+ system(['fslmerge -a ',movim_all,'_FLIRT ',char(tomerge)]);
+end
+% 
+% 
+% %STEP2: FLIRT of the entire volumes
+%  for ii=2:NumberLoaded-1
+%      movim=files{ii};
+%         outim=[files{ii},'_STEP1'];
+%         command=['flirt -ref ',refim,' -in ',movim,' -refweight ',mask,' -out ',outim] ;
+%         system(command)
+%        
+%             
+%         
+%     current=ii-1;
+%     total=NumberLoaded-2;
+%     
+%     disp('STEP 2: ')
+%  end
+end
+
