@@ -1,3 +1,5 @@
+%HELLO
+
 %% T1 maps for REVITA2 study
 %set FSL invironment
 setenv('FSLDIR','/usr/local/fsl/')
