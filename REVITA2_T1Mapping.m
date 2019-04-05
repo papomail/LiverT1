@@ -1,8 +1,8 @@
 %% T1 maps calculation
-
 %set FSL invironment
 setenv('FSLDIR','/usr/local/fsl/')
 setenv('FSLOUTPUTTYPE','NIFTI_GZ')
+
 fclose all
 format long
 clear all
@@ -12,100 +12,103 @@ addpath(pathtoadd)
 %% Options
 SAVE_NII=1
 FLIRT_MOCO=0
-
+BATCH_PROCCESS=1
 %% Input parameters
 
-TIs_CEST = [100 235 550 1300 3000 7000]; %ms
-TIs_MOLLI3 = [120, 200, 280]; %ms
-TIs_MOLLI5 = [120, 200, 280, 360, 420]; %ms
-TIs_LIVER = [100 200 300 500 1000 2000]; %ms
 
-TIs = TIs_LIVER;
-
-%FA = 7; 
-%TR = 6000; %ms
-
-
-FAs=[2.5 5 7 10 15];
 
 %% Set original path
 [the_folder] = pathsetting('Desktop'); 
+
+%%  Patient Selection
+%reader_Oct2018(the_folder,message)
+
+
 
 %%  MOCO
 %MOCO=0
 if FLIRT_MOCO==1
     tic
-    [myfileselection]=MOCO_LIVER_T1;%(myfileselection);
+    [myfileselection]=MOCO_LIVER_Jan2019;%(myfileselection);
     toc
 end
     
 %% Select the data
-message = 'Please select folder with the dicoms OR the inversion-recovery niftis ';
-[data_cell, folderfiles, folders] = reader_Oct2018(the_folder,message);
+message = 'Select patient folders';
+filter='mD_Liver'
+[data_cell, folderfiles, folders] = reader_Jan2019(the_folder,message,filter);
 num_dataSets = numel(data_cell);
 %%Read the selected data
 
 
 %%
 % Load and check if InversionRecovery of MultiFA fit
-NIFTIfolder=fileparts(folderfiles{1}{1});
-dicomheaders=char([NIFTIfolder,'/dcmHeaders.mat']);
+%NIFTIfolder=fileparts(folderfiles{1}{1});
+NIFTIfolder=fileparts(folderfiles{1}(1).name);
 
-load(dicomheaders)
+dicomheaders_file=char([NIFTIfolder,'/dcmHeaders.mat']);
 
-clear dataT1 dataT1_init sequenceTI sequenceFA
+dicom_headers=load(dicomheaders_file);
+
+clear dataT1 dataT1_init sequenceTI sequenceFA niiSS niiRI
 for ii=1:num_dataSets
     
     %fullpath=[data_cell{ii}.fileprefix,'.nii'];
     fullpath=data_cell{ii}.hdr.file_name;
     [~,myfilename,~]=fileparts(fullpath);
+    if strfind(myfilename,'.nii')
+        [~,myfilename,~]=fileparts(myfilename);
+    end
+        
+        
+        
     myfs=strfind(myfilename,'_FLIRT');  %% Find the headers of the original (non-registered) file.
     if myfs
         myfilename=myfilename(1:myfs-1);
             [~,myfilename,~]=fileparts(myfilename);
     end
     
-    if isfield(h.(myfilename), 'InversionTime')
-        sequenceTI(ii)=h.(myfilename).InversionTime;
+    if isfield(dicom_headers.h.(myfilename), 'InversionTime')
+        sequenceTI(ii)=dicom_headers.h.(myfilename).InversionTime;
         fit_type= 'inversion_recovery';
         LookLocker='no'
         mD_IR='no'
-    elseif isfield(h.(myfilename), 'TriggerTime'); %% For MOLLI/LookLocker
+    elseif isfield(dicom_headers.h.(myfilename), 'TriggerTime'); %% For MOLLI/LookLocker
         sequenceTIint=220 ;
-        sequenceTI1=h.(myfilename).TriggerTime;
-        sequenceTInum=h.(myfilename).NumberOfPhasesMR;
+        sequenceTI1=dicom_headers.h.(myfilename).TriggerTime;
+        sequenceTInum=dicom_headers.h.(myfilename).NumberOfPhasesMR;
         sequenceTI=double([sequenceTI1:sequenceTIint:sequenceTInum*sequenceTIint])
         disp('Please check if these TIs are correct')
         fit_type= 'inversion_recovery';
         LookLocker='yes'
         mD_IR='no'
-    elseif strncmp(h.(myfilename).NiftiName, 'mD_RPP_TI',9); %% For IR_mD 
+    elseif strncmp(dicom_headers.h.(myfilename).NiftiName, 'mD_RPP_TI',9); %% For IR_mD 
         
-        myTI1=str2double(h.(myfilename).NiftiName(10:13));
+        myTI1=str2double(dicom_headers.h.(myfilename).NiftiName(10:13));
         if isnan(myTI1)
-            myTI1=str2double(h.(myfilename).NiftiName(10:12));
+            myTI1=str2double(dicom_headers.h.(myfilename).NiftiName(10:12));
         end
         sequenceTI(ii)=myTI1;
         fit_type= 'inversion_recovery';
         mD_IR='yes'
         LookLocker='no'
     else
-        sequenceFA(ii)=h.(myfilename).FlipAngle;
-        TR(ii)=h.(myfilename).RepetitionTime;
+        sequenceFA(ii)=dicom_headers.h.(myfilename).FlipAngle;
+        TR(ii)=dicom_headers.h.(myfilename).RepetitionTime;
         fit_type= 'multi_fa';
     end
     
     voxvol(ii)=prod(data_cell{ii}.hdr.pixdim(2:4));
     
     %%%% Scaling .nii for matlab to display float point
-    niiSS = single(data_cell{ii}.hdr.scl_slope);
-%     dicomSS= double(h.(myfilename).MRScaleSlope);
-%     dicomRS= double(h.(myfilename).RescaleSlope);
+    niiSS(ii) = double(data_cell{ii}.hdr.scl_slope);
+%     dicomSS= double(dicom_headers.h.(myfilename).MRScaleSlope);
+%     dicomRS= double(dicom_headers.h.(myfilename).RescaleSlope);
 %         
 
-    niiRI= single(data_cell{ii}.hdr.scl_inter);
-%     dicomSI= double(h.(myfilename).MRScaleIntercept);
-%     dicomRI= double(h.(myfilename).RescaleIntercept);
+    niiRI(ii)= double(data_cell{ii}.hdr.scl_inter);
+%     dicomSI= double(dicom_headers.h.(myfilename).MRScaleIntercept);
+%     dicomRI= double(dicom_headers.h.(myfilename).RescaleIntercept);
 
     
     
@@ -118,22 +121,21 @@ for ii=1:num_dataSets
 %     end
 %     
     if 0%myfs
-     dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)/dicomRS+dicomRI/(dicomRI*dicomRS) ;
-    elseif 0
-    dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)*niiSS+niiRI;
-    elseif 0
-    dataT1_init(:,:,:,:,ii)= data_cell{ii}.img*niiSS+niiRI;
+    dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)/dicomRS+dicomRI/(dicomRI*dicomRS) ;
     elseif 1
+    dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)*niiSS(ii)+niiRI(ii);
+    elseif 0
+    dataT1_init(:,:,:,:,ii)= data_cell{ii}.img*niiSS(ii)+niiRI(ii);
+    elseif 0
     dataT1_init(:,:,:,:,ii)= data_cell{ii}.img;
     elseif 0
     dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)/niiSS/dicomSS+dicomRI/(dicomRS*dicomSS) ;
     elseif 0
-            dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)/niiSS/dicomSS*dicomRS; % BE CAREFULL!!!!
+    dataT1_init(:,:,:,:,ii)= double(data_cell{ii}.img)/niiSS(ii)/dicomSS*dicomRS; % BE CAREFULL!!!!
     end
     
 %     dicomRS_A(ii)=dicomRS;
 %     dicomSS_A(ii)=dicomSS;
-     niiSS_A(ii)=niiSS;
 %    
     % Scale to Floating Point: (Philips) (and Torbens's slides)
     % FP= SV/SS + RI/(RS*SS), where FP: "Floating Point"  
@@ -192,7 +194,7 @@ switch fit_type
             
             reorientdataT1=permute(reorientdataT1,[1 3 2 4 5]);%% permute dimensions 2 and 3 to put images as yxz
             reorientdataT1=rot90(reorientdataT1); %% rotate image
-            showFatWater(reorientdataT1)% show 4 images (fat water outofphase inphase)
+           % showFatWater(reorientdataT1)% show 4 images (fat water outofphase inphase)
 
 reorientdataT1=flip(reorientdataT1(:,:,:,[1,2],:),4);  %% Put WaterOnly first and FatOnly second, and get rid of the rest.
 %reorientdataT1=flip(reorientdataT1(:,:,:,[3,4],:),4);  %% Put INPHASE first and OUTOFPHASE second, and get rid of the rest.
@@ -210,7 +212,7 @@ showFatWater(reorientdataT1)% show 2 images (water fat)
 % reorient image
 reorientdataT1=permute(reorientdataT1,[1 3 2 4 5]);%% permute dimensions 2 and 3 to put images as yxz
 reorientdataT1=rot90(reorientdataT1); %% rotate image
-showFatWater(reorientdataT1)% show 4 images (fat water outofphase inphase) 
+%showFatWater(reorientdataT1)% show 4 images (fat water outofphase inphase) 
  %(ORDER IN IFALD2: f i o w )
 reorientdataT1=flip(reorientdataT1(:,:,:,[1,2],:),4);  %% Put WaterOnly first and FatOnly second, and get rid of the rest.
 %reorientdataT1=flip(reorientdataT1(:,:,:,[3,4],:),4);  %% Put INPHASE first and OUTOFPHASE second, and get rid of the rest.
@@ -222,18 +224,23 @@ end
 
 %% Load B1map if aquired.
 B1map_file=char([NIFTIfolder,'/B1map_Liver_coronal.nii']);
+ICanFindB0Map=1;
 if ~(exist(B1map_file,'file')==2)
-B1map_file=char([NIFTIfolder,'/WIP_B1map_Liver_coronal.nii']);
- ICanFindB0Map=(exist(B1map_file,'file')==2);
-else
-   ICanFindB0Map=1;
+    B1map_file=char([NIFTIfolder,'/WIP_B1map_Liver_coronal.nii']);
+    if ~(exist(B1map_file,'file')==2)
+        B1map_file=char([NIFTIfolder,'/B1map_Liver_axial.nii']);
+        if ~(exist(B1map_file,'file')==2)
+            ICanFindB0Map=0
+            disp('CANT FIND B1 DATA')
+        end            
+    end
 end
 
 
 
 
-warning('I WONT USE B1 DATA for INVERSION RECOVERY FIT!! ')
 if strcmp(fit_type,'inversion_recovery')
+warning('I WONT USE B1 DATA for INVERSION RECOVERY FIT!! ')
 ICanFindB0Map=0
 end
 
@@ -243,17 +250,15 @@ if ICanFindB0Map
     use_b1_in_fit=1;
     disp('Loading B1map.')
     %B1map_data=load_untouch_nii(B1map_file);
-        B1map_data=nii_tool('load',B1map_file);
+    B1map_data=nii_tool('load',B1map_file);
     B1map_data.img(:,:,:,2:6)=[];
     B1map_data=nii_tool('update',B1map_data);
     
-        disp( 'Interpolating B1maps to match mFA data...')
+    disp( 'Interpolating B1maps to match mFA data...')
     B1map_data_int=nii_xform(B1map_data,data_cell{1});
-    
     B1map_data_int=B1map_data_int.img;
     
-    
-    
+   
     %%%%%%% Scaling if needed
     meanB1val=nanmean(B1map_data_int(:));
     if meanB1val>300 || meanB1val<30
@@ -289,34 +294,35 @@ if ICanFindB0Map
     
     %%%%%
     
-    
     if strcmp(fit_type,'inversion_recovery') && strcmp(mD_IR,'no')
-                B1map_data_int=flip(rot90(B1map_data_int),2);%% rotate and flip image
+        B1map_data_int=flip(rot90(B1map_data_int),2);%% rotate and flip image
     else
-    
-    B1map_data_int=permute(B1map_data_int,[1 3 2 4 5]);%% reorient B1maps
-    B1map_data_int=rot90(B1map_data_int);
-    B1map_data_int=B1map_data_int(:,:,:,1);
-    
-    % interpolate B1map to match mFA data
-    %disp('Will assume the same FOV as the data for T1 mapping.')
-%     dvsize=size(reorientdataT1);
-%     xq=linspace(1,size(B1map_data,1),dvsize(1));
-%     yq=linspace(1,size(B1map_data,2),dvsize(2));
-%     zq=linspace(1,size(B1map_data,3),dvsize(3));
-%     [Xq,Yq,Zq]=ndgrid(xq,yq,zq);
-%     
-%     xo=1:size(B1map_data,1);
-%     yo=1:size(B1map_data,2);
-%     zo=1:size(B1map_data,3);
-%     [Xo,Yo,Zo]=ndgrid(xo,yo,zo);
-%     
-%     B1map_data_int=interpn(Xo,Yo,Zo,B1map_data,Xq,Yq,Zq);
+        
+        B1map_data_int=permute(B1map_data_int,[1 3 2 4 5]);%% reorient B1maps
+        B1map_data_int=rot90(B1map_data_int);
+        B1map_data_int=B1map_data_int(:,:,:,1);
+        
+        
+        
+        % interpolate B1map to match mFA data
+        %disp('Will assume the same FOV as the data for T1 mapping.')
+        %     dvsize=size(reorientdataT1);
+        %     xq=linspace(1,size(B1map_data,1),dvsize(1));
+        %     yq=linspace(1,size(B1map_data,2),dvsize(2));
+        %     zq=linspace(1,size(B1map_data,3),dvsize(3));
+        %     [Xq,Yq,Zq]=ndgrid(xq,yq,zq);
+        %
+        %     xo=1:size(B1map_data,1);
+        %     yo=1:size(B1map_data,2);
+        %     zo=1:size(B1map_data,3);
+        %     [Xo,Yo,Zo]=ndgrid(xo,yo,zo);
+        %
+        %     B1map_data_int=interpn(Xo,Yo,Zo,B1map_data,Xq,Yq,Zq);
     end
     
 else
-        use_b1_in_fit=0;
-
+    use_b1_in_fit=0;
+    
     warning('I could not find any B1 maps. Continuing without it.')
     B1map_data_int=ones(size(reorientdataT1,1),size(reorientdataT1,2),size(reorientdataT1,3));
 end
@@ -324,11 +330,17 @@ end
 
 %% select ROI in image  and MOCO
 
-figure, imagesc(reorientdataT1(:,:,round(size(reorientdataT1,3)/2),1,1))
-title('Please draw a rectangle in the liver where fitting is required. [double clic to finish]')
-h = imrect;
-position = round(wait(h));
-close
+
+if BATCH_PROCCESS
+   position=[60   110   180   210];
+else
+    figure, imagesc(reorientdataT1(:,:,round(size(reorientdataT1,3)/2),1,1))
+    title('Please draw a rectangle in the liver where fitting is required. [double clic to finish]')
+    h = imrect;
+    position = round(wait(h));
+    close
+end
+
 xrange=position(1):position(1)+position(3);
 yrange=position(2):position(2)+position(4);
 reorientdataT1_s=reorientdataT1(yrange,xrange,:,:,:);
@@ -356,7 +368,9 @@ switch fit_type
         dataB1=B1map_data_int(yrange,xrange,slrange,:,:);
         
         mergezslizes=0%% merges zslices in pairs to obtain similar slice thickness as in the IR_TSE sequence
+        
         if mergezslizes
+            disp('Merging zslices in pairs to obtain similar slice thickness as in the IR_TSE sequence')
         dataT1odd=dataT1(:,:,1:2:end,:,:);%% merge zslices in pairs
         dataT1even=dataT1(:,:,2:2:end,:,:);
         dataT1merg=(dataT1odd+dataT1even)/2;
@@ -391,17 +405,24 @@ end
 % new path
 filepath_T1data=cell2mat(folderfiles{1}(1)); 
 
-%  check voxel(s) plot(s)
+%%  Check voxel(s) plot(s)
+if BATCH_PROCCESS
+    pxs=[105;85;65;45];
+    pys=[60;95;120;145];
+else
+    
+    figure,imagesc(dataT1(:,:,sl,1))
+    title('Choose the few voxels to check the raw data. [double clic to finish]')
+    [pxs, pys] = getpts;
+    close
+    pxs=round(pxs);
+    pys=round(pys);
+end
 sl=round(size(dataT1,3)/2);
-figure,imagesc(dataT1(:,:,sl,1))
-title('Choose the few voxels to check the raw data. [double clic to finish]')
-[pxs, pys] = getpts;
-close
-pxs=round(pxs);
-pys=round(pys);
+figure, hold on
 for ii=1:numel(pxs)
-figure,plot(squeeze(dataT1(pys(ii),pxs(ii),sl,:)),'-o')
-title('Data in the selected voxel')
+    plot(squeeze(dataT1(pys(ii),pxs(ii),sl,:)),'-o')
+    title('Raw data in the selected voxels')
 end
 
 
@@ -618,6 +639,10 @@ end
 
 if ~exist('TR','var')
     TR=0;
+end
+
+if ~exist('TIs','var')
+    TIs=0;
 end
 save([outfilename,'.mat'],'T1maps','FAmaps','M0maps','TIs','dataT1','dataB1', 'use_b1_in_fit','fit_type','R2adjusted','fitparam','TR')
 %% See the fits 

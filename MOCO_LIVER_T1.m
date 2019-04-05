@@ -27,7 +27,7 @@ mask=files{NumberLoaded};
  refs=strsplit(refs);
  %refs=strcat([dir,filesep],refs);
  
-  split_mask=['cd ',dir,'; fslsplit ',mask,' aMASK -z' ] ;
+ split_mask=['cd ',dir,'; fslsplit ',mask,' aMASK -z' ] ;
  system(split_mask); 
  [~, masks]=system(['ls ',dir,filesep,'* |grep aMASK0 |grep .gz']);
  masks=strsplit(masks);
@@ -53,7 +53,9 @@ for ii=2:NumberLoaded-1
         refim1=refs{jj};
          movim1=movs{jj};
              
-        command=['flirt -ref ',refim1,' -in ',movim1,' -refweight ',mask1,' -out ',outim1,' -2D -cost normmi  -searchrx -5 5 -searchry -5 5 -searchrz -5 5'] ;
+        %command=['flirt -ref ',refim1,' -in ',movim1,' -refweight ',mask1,' -out ',outim1,' -2D -cost normmi  -searchrx -5 5 -searchry -5 5 -searchrz -5 5'] ;
+                command=['flirt -ref ',refim1,' -in ',movim1,' -refweight ',mask1,' -inweight ',mask1,' -out ',outim1,' -schedule /Users/patxi/Desktop/ytransonly.sch'] ;
+
         system(command);
         jj
     end

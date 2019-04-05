@@ -3,11 +3,17 @@
 % conversion to DCM or radiant export.
 %%
     
-function [data, folderfiles, folders] = reader_Oct2018(the_folder,message)
+function [data, folderfiles, folders] = reader_Jan2019(the_folder,message,varargin)
+    folders=uipickfiles('FilterSpec',the_folder , 'REFilter','spirTSE|TR|0.nii\','Prompt',message,'Type', {'*.nii','NIFTI files'});
 
+if numel(varargin)<1
+filter=[];
+else
+   filenames_to_look_for=char(varargin);
+   filter=['*',filenames_to_look_for,'*'];
 
+end
 
-folders=uipickfiles('FilterSpec',the_folder , 'REFilter','spirTSE|TR|0.nii\','Prompt',message,'Type', {'*.nii','NIFTI files'});
 
 NumberLoaded=numel(folders);
 clear files folderfiles
@@ -26,14 +32,19 @@ end
 for ii=1:NumberLoaded 
     
         
-    if isempty(folderfiles{ii})     %(NIFTI)
-        folderfiles{ii}=dirrec(folders{ii},'.nii '); %looks for NIFTI
-    end
-    
-    if isempty(folderfiles{ii}) %If still empty
-       folderfiles{ii}=dirrec(folders{ii},'.img ');% look for ANALYZE
-    end
-    
+    if isempty(folderfiles{ii})     %(GZ)
+        %folderfiles{ii}=dirrec([folders{ii},filesep,'NIFTI'],[filter,'.gz ']); %looks for NIFTI
+        folderfiles{ii}=subdir([folders{ii},filesep,filter]); %looks for NIFTI
+        
+    end    
+%     if isempty(folderfiles{ii})     %(NIFTI)
+%         folderfiles{ii}=dirrec([folders{ii},filesep,'NIFTI'],[filter,'.nii ']); %looks for NIFTI
+%     end
+%     
+%     if isempty(folderfiles{ii}) %If still empty
+%        folderfiles{ii}=dirrec(folders{ii},'.img ');% look for ANALYZE
+%     end
+%     
     
      %dicom format
         if isempty(folderfiles{ii})
@@ -48,18 +59,18 @@ for ii=1:NumberLoaded
 
     
     if isempty(folderfiles{ii}) %any other format (IMA)
-       display('There are no files I recognise. Please if you have data as .IMA convert them to .DCM first')
+       disp('There are no files I recognise. Please if you have data as .IMA convert them to .DCM first')
     end
     
     %%Now that are in Niftii READ THEM
     
    Number_acquisitions=numel(folderfiles{ii});
 for ij = 1:Number_acquisitions
-    path_toread=folderfiles{ii};
+    path_toread=folderfiles{ii}(ij).name;
     %Data_str=load_Rnii(path_toread{ij});
     
         %data{ij,ii}=load_untouch_nii(path_toread{ij});
-         data{ij,ii}=nii_tool('load',path_toread{ij});
+         data{ij,ii}=nii_tool('load',path_toread);
 
     
              

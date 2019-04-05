@@ -5,7 +5,7 @@ fig1=figure;
 h=subaxis(2,2,1,1, 'm', 0.07);
 imagesc(T1maps),title('T1 map (ms). Pan through to see the fits'),
 colorbar
-caxis([0 2000])
+caxis([0 4000])
 colormap(h,jet)
 set(gca,'XTick','')
 set(gca,'YTick','')
@@ -120,18 +120,19 @@ set (fig1, 'WindowButtonMotionFcn', @mouseMove,'pointer','crosshair')
                         Aconstantmap1=0;
                     end
                     FAcor1=squeeze(reshaped_FAcor(py,px,:,:));
-
-                    plot(FAcor1,squeeze(dataT11(:,1)),'o')
-                    hold on
                     
-                    plot(myxx,Aconstantmap1+M01*sin(myxx*pi/180).*(1-exp(-TR/T11))./(1-cos(myxx*pi/180).*exp(-TR/T11)))
-                    %fplot(@(x) Aconstantmap1+M01*sin(x*pi/180).*(1-exp(-TR/T11))./(1-cos(x*pi/180).*exp(-TR/T11)))
+                    cla
+                    
+                    fplot(@(x) Aconstantmap1+M01*sin(x*pi/180).*(1-exp(-TR/T11))./(1-cos(x*pi/180).*exp(-TR/T11)), [0 20])
+                    hold on
+                    plot(FAcor1,squeeze(dataT11(:,1)),'o')
+                    %plot(myxx,Aconstantmap1+M01*sin(myxx*pi/180).*(1-exp(-TR/T11))./(1-cos(myxx*pi/180).*exp(-TR/T11)))
                     xlabel('Efective FlipAngle [degrees]')
                     ylabel('Signal Intensity')
                     mytext=['T1=',mat2str(round(T11)),' ms'];
                     text(0.5,0.8,mytext,'units','normalized','FontSize',14)
                     set(gca,'FontSize',12);
-                    hold off;
+                   
             end
         end
     end
