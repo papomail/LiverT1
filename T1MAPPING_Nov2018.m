@@ -59,6 +59,12 @@ for ii=1:num_dataSets
     %fullpath=[data_cell{ii}.fileprefix,'.nii'];
     fullpath=data_cell{ii}.hdr.file_name;
     [~,myfilename,~]=fileparts(fullpath);
+    
+    if strcmp(myfilename(end-3:end),'.nii') %% Remove extension...
+        myfilename=myfilename(1:end-4);
+            [~,myfilename,~]=fileparts(myfilename);
+    end
+    
     myfs=strfind(myfilename,'_FLIRT');  %% Find the headers of the original (non-registered) file.
     if myfs
         myfilename=myfilename(1:myfs-1);
