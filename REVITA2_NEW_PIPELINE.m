@@ -58,7 +58,7 @@ processed=0;
 %% Parse data
 %parseout=parsedata('folder',pfolders{patient},'filter',{'W*FA10.nii.gz','3DREG'},'maskfilter','Seg');  %%  REVITA2 3DREGISTRED filenames
 
-
+Script_folder = fileparts(which(mfilename));
 %% NIFTI conversion
 parfor patient=1:numel(pfolders)
     
@@ -79,6 +79,7 @@ parfor patient=1:numel(pfolders)
      %system([ '/Applications/osx/dcm2nii -b ',studyfolder,filesep,'dcm2nii_rescale.ini -a Y -g Y -x N -o ' NIFTIFolder , ' ' subjectFolder]);
      %system([ '/Applications/dcm2niix_25-Nov-2018_mac/dcm2niix -p Y -o ' NIFTIFolder , ' ' subjectFolder]);
          system([ '/Applications/osx/dcm2nii -b /Users/patxi/Desktop/REVITA22/dcm2nii_rescale.ini -a Y -g Y -x N -o ' NIFTIFolder , ' ' subjectFolder]);
+        % system([Script_folder,filesep, 'dcm2niix -o ' NIFTIFolder , ' ' subjectFolder]);
 
     end
 
